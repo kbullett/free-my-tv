@@ -288,9 +288,9 @@ var TV = (function () {
         // TEST BUILD (not for merging): BBC iPlayer's launcher drops to Smart Hub's home when opened with launch().
         // Three other ways to open it, as their own tiles.
         if (out.some(function (x) { return x.id === IPLAYER; })) {
-          out.push({id: 'test:A', title: 'iPlayer test A', icon: '', color: '#B00D5A'});
-          out.push({id: 'test:B', title: 'iPlayer test B', icon: '', color: '#B00D5A'});
-          out.push({id: 'test:C', title: 'iPlayer test C', icon: '', color: '#B00D5A'});
+          out.push({id: 'test:D', title: 'iPlayer test D', icon: '', color: '#B00D5A'});
+          out.push({id: 'test:E', title: 'iPlayer test E', icon: '', color: '#B00D5A'});
+          out.push({id: 'test:F', title: 'iPlayer test F', icon: '', color: '#B00D5A'});
         }
         done(out);
       }, function () { done([]); });
@@ -349,12 +349,14 @@ var TV = (function () {
     x.send('');
   }
 
-  // TEST BUILD: the BBC iPlayer launch experiments above.
+  // TEST BUILD: the BBC iPlayer launch experiments above (round 1, A to C, all dropped to Home or failed).
   var IPLAYER = 'DqEoaplKlw.bbchybrid';
 
-  function appControl(operation, done) {
+  function appControl(operation, done, payload) {
     try {
-      var control = new window.tizen.ApplicationControl(operation, null, null, null, []);
+      var data = payload === undefined ? [] :
+          [new window.tizen.ApplicationControlData('PAYLOAD', [JSON.stringify({values: payload})])];
+      var control = new window.tizen.ApplicationControl(operation, null, null, null, data);
       window.tizen.application.launchAppControl(control, IPLAYER, function () { if (done) done(true); },
           function () { if (done) done(false); });
     } catch (e) {
@@ -363,10 +365,20 @@ var TV = (function () {
   }
 
   function testLaunch(id, done) {
-    if (id === 'test:A') appControl('http://tizen.org/appcontrol/operation/default', done);
-    else if (id === 'test:B') dialLaunch('iPlayer', done);
-    else if (id === 'test:C') appControl('http://samsung.com/appcontrol/operation/eden_resume', done);
-    else if (done) done(false);
+    // D: Smart Hub's resume with the PAYLOAD its deep links carry. E: the same PAYLOAD on the default operation.
+    // F: the plain launch, but with Free My TV hidden first, so the launcher doesn't start under another web app.
+    if (id === 'test:D') appControl('http://samsung.com/appcontrol/operation/eden_resume', done, '');
+    else if (id === 'test:E') appControl('http://tizen.org/appcontrol/operation/default', done, '');
+    else if (id === 'test:F') {
+      try { window.tizen.application.getCurrentApplication().hide(); } catch (e) {}
+      setTimeout(function () {
+        try {
+          window.tizen.application.launch(IPLAYER, function () { if (done) done(true); }, function () { if (done) done(false); });
+        } catch (e) {
+          if (done) done(false);
+        }
+      }, 300);
+    } else if (done) done(false);
   }
 
   function samsungLaunch(id, done) {
