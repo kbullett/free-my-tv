@@ -285,6 +285,13 @@ var TV = (function () {
         if (store) out = out.filter(function (x) { return x.id.indexOf('org.tizen.netflix') !== 0; });
         // Smart Hub keeps its own order, which isn't readable: the same alphabetical order as All Apps elsewhere.
         out.sort(function (x, y) { var a = x.title.toLowerCase(), b = y.title.toLowerCase(); return a < b ? -1 : a > b ? 1 : 0; });
+        // TEST BUILD (not for merging): BBC iPlayer's launcher drops to Smart Hub's home when opened with launch().
+        // Three other ways to open it, as their own tiles.
+        if (out.some(function (x) { return x.id === IPLAYER; })) {
+          out.push({id: 'test:A', title: 'iPlayer test A', icon: '', color: '#B00D5A'});
+          out.push({id: 'test:B', title: 'iPlayer test B', icon: '', color: '#B00D5A'});
+          out.push({id: 'test:C', title: 'iPlayer test C', icon: '', color: '#B00D5A'});
+        }
         done(out);
       }, function () { done([]); });
     } catch (e) {
@@ -340,6 +347,26 @@ var TV = (function () {
     x.ontimeout = x.onerror = function () { if (!over) { over = true; if (done) done(false); } };
     x.setRequestHeader('Content-Type', 'text/plain; charset=utf-8');
     x.send('');
+  }
+
+  // TEST BUILD: the BBC iPlayer launch experiments above.
+  var IPLAYER = 'DqEoaplKlw.bbchybrid';
+
+  function appControl(operation, done) {
+    try {
+      var control = new window.tizen.ApplicationControl(operation, null, null, null, []);
+      window.tizen.application.launchAppControl(control, IPLAYER, function () { if (done) done(true); },
+          function () { if (done) done(false); });
+    } catch (e) {
+      if (done) done(false);
+    }
+  }
+
+  function testLaunch(id, done) {
+    if (id === 'test:A') appControl('http://tizen.org/appcontrol/operation/default', done);
+    else if (id === 'test:B') dialLaunch('iPlayer', done);
+    else if (id === 'test:C') appControl('http://samsung.com/appcontrol/operation/eden_resume', done);
+    else if (done) done(false);
   }
 
   function samsungLaunch(id, done) {
@@ -567,6 +594,7 @@ var TV = (function () {
     launch: function (id, params, done) {
       if (samsung) {
         if (id.indexOf('source:') === 0) samsungSource(id, done);
+        else if (id.indexOf('test:') === 0) testLaunch(id, done);
         else samsungLaunch(id, done);
         return;
       }
